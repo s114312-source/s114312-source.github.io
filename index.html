@@ -9,3 +9,203 @@
       hello world
   </body>
 </html>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的簡單備忘錄</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>我的備忘錄</h1>
+        <div class="input-area">
+            <textarea id="memo-input" placeholder="在這裡輸入您的備忘事項..."></textarea>
+            <button id="add-btn">新增備忘</button>
+        </div>
+        <ul id="memo-list" class="memo-list">
+        </ul>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
+body {
+    font-family: '微軟正黑體', 'Arial', sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    width: 100%;
+    max-width: 600px;
+    background-color: #fff;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+h1 {
+    text-align: center;
+    color: #007bff;
+    margin-bottom: 20px;
+}
+
+.input-area {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+}
+
+#memo-input {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    resize: vertical; /* 允許垂直拖拉調整大小 */
+    min-height: 80px;
+}
+
+#add-btn {
+    padding: 10px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#add-btn:hover {
+    background-color: #218838;
+}
+
+.memo-list {
+    list-style: none;
+    padding: 0;
+}
+
+.memo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    word-break: break-word; /* 防止長單字溢出 */
+}
+
+.memo-text {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const memoInput = document.getElementById('memo-input');
+    const addBtn = document.getElementById('add-btn');
+    const memoList = document.getElementById('memo-list');
+
+    // 1. 頁面載入時，從 Local Storage 載入所有備忘錄
+    loadMemos();
+
+    // 2. 監聽「新增備忘」按鈕
+    addBtn.addEventListener('click', addMemo);
+
+    function addMemo() {
+        const text = memoInput.value.trim();
+
+        if (text === "") {
+            alert("請輸入備忘事項！");
+            return;
+        }
+
+        // 建立並顯示新的備忘清單項目
+        const listItem = createMemoElement(text);
+        memoList.appendChild(listItem);
+
+        // 儲存到 Local Storage
+        saveMemo(text);
+
+        // 清空輸入框
+        memoInput.value = "";
+    }
+
+    function createMemoElement(text) {
+        const listItem = document.createElement('li');
+        listItem.className = 'memo-item';
+
+        const memoText = document.createElement('span');
+        memoText.className = 'memo-text';
+        memoText.textContent = text;
+        listItem.appendChild(memoText);
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = '刪除';
+        
+        // 監聽刪除按鈕
+        deleteBtn.addEventListener('click', () => {
+            // 從畫面中移除
+            memoList.removeChild(listItem);
+            // 從 Local Storage 移除
+            removeMemo(text);
+        });
+        
+        listItem.appendChild(deleteBtn);
+        return listItem;
+    }
+
+    // --- Local Storage 相關功能 ---
+
+    // 取得所有儲存的備忘錄 (陣列格式)
+    function getStoredMemos() {
+        const memos = localStorage.getItem('memos');
+        return memos ? JSON.parse(memos) : [];
+    }
+
+    // 將備忘錄陣列儲存到 Local Storage
+    function saveMemos(memosArray) {
+        localStorage.setItem('memos', JSON.stringify(memosArray));
+    }
+
+    // 載入並在畫面上顯示所有備忘錄
+    function loadMemos() {
+        const memos = getStoredMemos();
+        memos.forEach(text => {
+            const listItem = createMemoElement(text);
+            memoList.appendChild(listItem);
+        });
+    }
+
+    // 新增一個備忘錄到 Local Storage
+    function saveMemo(text) {
+        const memos = getStoredMemos();
+        memos.push(text);
+        saveMemos(memos);
+    }
+
+    // 從 Local Storage 移除指定的備忘錄
+    function removeMemo(textToRemove) {
+        let memos = getStoredMemos();
+        // 過濾掉要刪除的文字
+        memos = memos.filter(text => text !== textToRemove); 
+        saveMemos(memos);
+    }
+});
