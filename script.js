@@ -7,28 +7,25 @@ canvas.height = window.innerHeight;
 
 let score = 0;
 let fruits = [];
-const gravity = 0.2;
+let slicedPieces = []; 
+const gravity = 0.25;
 
-// 刀光路徑
+// === 調整這裡：縮短刀光長度 ===
 let mousePath = [];
-const maxPathLength = 10; 
+const maxPathLength = 5; // 數字越小，刀光消失越快
 
-// 水果清單
 const fruitList = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
 
 class Fruit {
     constructor() {
-        this.radius = 40; // 碰撞判定的範圍
+        this.radius = 40;
         this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
         this.y = canvas.height + this.radius;
         this.speedY = -(Math.random() * 5 + 12); 
         this.speedX = (Math.random() - 0.5) * 4;
-        this.char = fruitList[Math.floor(Math.random() * fruitList.length)]; // 隨機選一個水果符號
-        
-        // 新增旋轉效果
+        this.char = fruitList[Math.floor(Math.random() * fruitList.length)];
         this.angle = 0;
         this.rotationSpeed = (Math.random() - 0.5) * 0.1; 
-        
         this.sliced = false;
     }
 
@@ -36,23 +33,64 @@ class Fruit {
         this.speedY += gravity;
         this.x += this.speedX;
         this.y += this.speedY;
-        this.angle += this.rotationSpeed; // 更新旋轉角度
+        this.angle += this.rotationSpeed;
     }
 
     draw() {
         if (this.sliced) return;
-
-        ctx.save(); // 保存當前畫布狀態
-        ctx.translate(this.x, this.y); // 移動畫布中心到水果座標
-        ctx.rotate(this.angle); // 旋轉畫布
-        
-        // 繪製水果 Emoji
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
         ctx.font = "50px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(this.char, 0, 0);
-        
-        ctx.restore(); // 恢復畫布狀態
+        ctx.restore();
+    }
+
+    slice() {
+        this.sliced = true;
+        slicedPieces.push(new SlicedPiece(this.x, this.y, this.char, this.angle, -2, this.speedY));
+        slicedPieces.push(new SlicedPiece(this.x, this.y, this.char, this.angle, 2, this.speedY));
+    }
+}
+
+class SlicedPiece {
+    constructor(x, y, char, angle, sideOffset, speedY) {
+        this.x = x;
+        this.y = y;
+        this.char = char;
+        this.angle = angle;
+        this.speedX = sideOffset + (Math.random() - 0.5) * 2;
+        this.speedY = speedY;
+        this.side = sideOffset > 0 ? 'right' : 'left';
+        this.opacity = 1;
+    }
+
+    update() {
+        this.speedY += gravity;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.opacity -= 0.02; // 加快碎片消失速度
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.font = "50px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.globalAlpha = Math.max(0, this.opacity);
+        ctx.beginPath();
+        if (this.side === 'left') {
+            ctx.rect(-50, -50, 50, 100);
+        } else {
+            ctx.rect(0, -50, 50, 100);
+        }
+        ctx.clip();
+        ctx.fillText(this.char, 0, 0);
+        ctx.restore();
     }
 }
 
@@ -62,11 +100,12 @@ function spawnFruit() {
     }
 }
 
+// 繪製刀光
 function drawBlade() {
     if (mousePath.length < 2) return;
     ctx.beginPath();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4; // 稍微調細一點
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)"; // 帶一點點透明度更自然
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.moveTo(mousePath[0].x, mousePath[0].y);
@@ -86,38 +125,4 @@ canvas.addEventListener('mousemove', (e) => {
 
     fruits.forEach(fruit => {
         if (!fruit.sliced) {
-            // 使用矩形或圓形判定皆可，這裡維持距離判定
-            const dist = Math.hypot(fruit.x - mouseX, fruit.y - mouseY);
-            if (dist < fruit.radius) {
-                fruit.sliced = true;
-                score += 10;
-                scoreElement.innerText = `得分: ${score}`;
-            }
-        }
-    });
-});
-
-canvas.addEventListener('mouseleave', () => {
-    mousePath = [];
-});
-
-function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    spawnFruit();
-    fruits.forEach((fruit, index) => {
-        fruit.update();
-        fruit.draw();
-        if (fruit.y > canvas.height + 100) {
-            fruits.splice(index, 1);
-        }
-    });
-    drawBlade();
-    requestAnimationFrame(animate);
-}
-
-animate();
-
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-});
+            const dist = Math.hypot(fruit.x -
