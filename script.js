@@ -2,33 +2,31 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 
-// 初始化畫布大小
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 let score = 0;
 let fruits = [];
-let slicedPieces = [];
+let slicedPieces = []; // 儲存切開後的碎片
 const gravity = 0.25;
+
+// 刀光路徑
 let mousePath = [];
-const maxPathLength = 10;
+const maxPathLength = 10; 
 
 const fruitList = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
 
+// --- 水果類別 ---
 class Fruit {
     constructor() {
-        this.radius = 45;
-        this.x = Math.random() * (canvas.width - 100) + 50;
-        this.y = canvas.height + 50;
-        this.speedY = -(Math.random() * 5 + 13); // 向上衝的速度
-        this.speedX = (Math.random() - 0.5) * 6;
+        this.radius = 40;
+        this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+        this.y = canvas.height + this.radius;
+        this.speedY = -(Math.random() * 5 + 12); 
+        this.speedX = (Math.random() - 0.5) * 4;
         this.char = fruitList[Math.floor(Math.random() * fruitList.length)];
         this.angle = 0;
-        this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.1; 
         this.sliced = false;
     }
 
@@ -40,61 +38,72 @@ class Fruit {
     }
 
     draw() {
+        if (this.sliced) return;
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        ctx.font = "60px Arial"; // 加大水果尺寸
+        ctx.font = "50px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(this.char, 0, 0);
         ctx.restore();
     }
 
+    // 當被切到時呼叫此方法
     slice() {
         this.sliced = true;
-        slicedPieces.push(new SlicedPiece(this.x, this.y, this.char, this.angle, -3, this.speedY));
-        slicedPieces.push(new SlicedPiece(this.x, this.y, this.char, this.angle, 3, this.speedY));
+        // 產生左半邊碎片
+        slicedPieces.push(new SlicedPiece(this.x, this.y, this.char, this.angle, -2, this.speedY));
+        // 產生右半邊碎片
+        slicedPieces.push(new SlicedPiece(this.x, this.y, this.char, this.angle, 2, this.speedY));
     }
 }
 
+// --- 碎片類別 (新增) ---
 class SlicedPiece {
     constructor(x, y, char, angle, sideOffset, speedY) {
         this.x = x;
         this.y = y;
         this.char = char;
         this.angle = angle;
-        this.speedX = sideOffset;
-        this.speedY = speedY;
-        this.side = sideOffset > 0 ? 'right' : 'left';
+        this.speedX = sideOffset + (Math.random() - 0.5) * 2; // 向左或向右噴開
+        this.speedY = speedY; // 繼承原本的向上慣性
+        this.side = sideOffset > 0 ? 'right' : 'left'; // 標記是哪一邊
         this.opacity = 1;
     }
+
     update() {
         this.speedY += gravity;
         this.x += this.speedX;
         this.y += this.speedY;
-        this.opacity -= 0.02;
+        this.opacity -= 0.01; // 碎片慢慢變透明消失
     }
+
     draw() {
-        if (this.opacity <= 0) return;
         ctx.save();
-        ctx.globalAlpha = this.opacity;
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        ctx.font = "60px Arial";
+        ctx.font = "50px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+        ctx.globalAlpha = Math.max(0, this.opacity);
+
+        // 使用剪裁功能只畫一半
         ctx.beginPath();
-        if (this.side === 'left') ctx.rect(-60, -60, 60, 120);
-        else ctx.rect(0, -60, 60, 120);
+        if (this.side === 'left') {
+            ctx.rect(-50, -50, 50, 100); // 遮住右半邊
+        } else {
+            ctx.rect(0, -50, 50, 100);  // 遮住左半邊
+        }
         ctx.clip();
+
         ctx.fillText(this.char, 0, 0);
         ctx.restore();
     }
 }
 
 function spawnFruit() {
-    // 提高產出機率，現在每秒約會出現 2-3 個
-    if (Math.random() < 0.05) {
+    if (Math.random() < 0.03) {
         fruits.push(new Fruit());
     }
 }
@@ -103,33 +112,38 @@ function drawBlade() {
     if (mousePath.length < 2) return;
     ctx.beginPath();
     ctx.lineWidth = 5;
-    ctx.strokeStyle = "white";
+    ctx.strokeStyle = "#ffffff";
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.moveTo(mousePath[0].x, mousePath[0].y);
     for (let i = 1; i < mousePath.length; i++) {
         ctx.lineTo(mousePath[i].x, mousePath[i].y);
     }
     ctx.stroke();
+    ctx.closePath();
 }
 
 canvas.addEventListener('mousemove', (e) => {
     const mouseX = e.clientX;
     const mouseY = e.clientY;
+
     mousePath.push({ x: mouseX, y: mouseY });
     if (mousePath.length > maxPathLength) mousePath.shift();
 
-    // 碰撞偵測
-    for (let i = fruits.length - 1; i >= 0; i--) {
-        let f = fruits[i];
-        const dist = Math.hypot(f.x - mouseX, f.y - mouseY);
-        if (dist < f.radius) {
-            f.slice();
-            score += 10;
-            scoreElement.innerText = `得分: ${score}`;
-            fruits.splice(i, 1); // 立即移除水果
-            mousePath = []; // 刀光立即消失
+    fruits.forEach(fruit => {
+        if (!fruit.sliced) {
+            const dist = Math.hypot(fruit.x - mouseX, fruit.y - mouseY);
+            if (dist < fruit.radius) {
+                fruit.slice(); // 呼叫分裂方法
+                score += 10;
+                scoreElement.innerText = `得分: ${score}`;
+            }
         }
-    }
+    });
+});
+
+canvas.addEventListener('mouseleave', () => {
+    mousePath = [];
 });
 
 function animate() {
@@ -137,28 +151,31 @@ function animate() {
     
     spawnFruit();
 
-    // 更新與繪製水果
-    for (let i = fruits.length - 1; i >= 0; i--) {
-        fruits[i].update();
-        fruits[i].draw();
-        if (fruits[i].y > canvas.height + 100) fruits.splice(i, 1);
-    }
-
-    // 更新與繪製碎片
-    for (let i = slicedPieces.length - 1; i >= 0; i--) {
-        slicedPieces[i].update();
-        slicedPieces[i].draw();
-        if (slicedPieces[i].y > canvas.height + 100 || slicedPieces[i].opacity <= 0) {
-            slicedPieces.splice(i, 1);
+    // 處理完整的水果
+    fruits.forEach((fruit, index) => {
+        fruit.update();
+        fruit.draw();
+        if (fruit.y > canvas.height + 100 || fruit.sliced) {
+            fruits.splice(index, 1);
         }
-    }
+    });
+
+    // 處理分裂的碎片
+    slicedPieces.forEach((piece, index) => {
+        piece.update();
+        piece.draw();
+        if (piece.y > canvas.height + 100 || piece.opacity <= 0) {
+            slicedPieces.splice(index, 1);
+        }
+    });
 
     drawBlade();
-    
-    // 如果滑鼠停住，刀光慢慢縮短
-    if (mousePath.length > 0) mousePath.shift();
-
     requestAnimationFrame(animate);
 }
 
 animate();
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
