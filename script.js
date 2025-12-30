@@ -10,9 +10,8 @@ let fruits = [];
 let slicedPieces = []; 
 const gravity = 0.25;
 
-// === 調整這裡：縮短刀光長度 ===
 let mousePath = [];
-const maxPathLength = 5; // 數字越小，刀光消失越快
+const maxPathLength = 10; 
 
 const fruitList = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
 
@@ -71,7 +70,7 @@ class SlicedPiece {
         this.speedY += gravity;
         this.x += this.speedX;
         this.y += this.speedY;
-        this.opacity -= 0.02; // 加快碎片消失速度
+        this.opacity -= 0.02;
     }
 
     draw() {
@@ -100,12 +99,11 @@ function spawnFruit() {
     }
 }
 
-// 繪製刀光
 function drawBlade() {
     if (mousePath.length < 2) return;
     ctx.beginPath();
-    ctx.lineWidth = 4; // 稍微調細一點
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)"; // 帶一點點透明度更自然
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "white";
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.moveTo(mousePath[0].x, mousePath[0].y);
@@ -125,4 +123,54 @@ canvas.addEventListener('mousemove', (e) => {
 
     fruits.forEach(fruit => {
         if (!fruit.sliced) {
-            const dist = Math.hypot(fruit.x -
+            const dist = Math.hypot(fruit.x - mouseX, fruit.y - mouseY);
+            if (dist < fruit.radius) {
+                fruit.slice();
+                score += 10;
+                scoreElement.innerText = `得分: ${score}`;
+                
+                // === 關鍵修改：切到水果後立刻清空刀光路徑 ===
+                mousePath = []; 
+            }
+        }
+    });
+});
+
+canvas.addEventListener('mouseleave', () => { mousePath = []; });
+
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    spawnFruit();
+
+    fruits.forEach((fruit, index) => {
+        fruit.update();
+        fruit.draw();
+        if (fruit.y > canvas.height + 100 || fruit.sliced) {
+            fruits.splice(index, 1);
+        }
+    });
+
+    slicedPieces.forEach((piece, index) => {
+        piece.update();
+        piece.draw();
+        if (piece.y > canvas.height + 100 || piece.opacity <= 0) {
+            slicedPieces.splice(index, 1);
+        }
+    });
+
+    drawBlade();
+    
+    // 如果滑鼠不動，刀光緩慢消失
+    if (mousePath.length > 0) {
+        mousePath.shift(); 
+    }
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
