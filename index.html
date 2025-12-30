@@ -4,76 +4,75 @@
     <meta charset="UTF-8">
     <title>切水果遊戲</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: sans-serif; }
         
-        /* 頂部數據 */
+        /* 數據欄位 */
         #hud {
             position: fixed; top: 10px; width: 100%;
             display: flex; justify-content: space-between;
             padding: 0 20px; box-sizing: border-box;
-            z-index: 10; pointer-events: none;
+            z-index: 50; pointer-events: none;
         }
-        .info {
-            color: white; font-size: 24px; font-weight: bold;
-            background: rgba(255,255,255,0.1); padding: 10px 20px; border-radius: 10px;
-        }
+        .info { color: white; font-size: 20px; background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 8px; }
 
-        /* 畫布 */
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
 
-        /* 選單與結束畫面 */
-        .overlay {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: #222; color: white; padding: 40px; border-radius: 20px;
-            text-align: center; z-index: 100; border: 2px solid white;
-            min-width: 250px; display: block;
+        /* 選單介面 - 確保 z-index 最高 */
+        .ui-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 9999;
         }
-        input { width: 80px; padding: 10px; font-size: 18px; margin: 10px; text-align: center; }
-        
-        /* 醒目的按鈕 */
+        .panel {
+            background: #333; color: white; padding: 30px; border-radius: 20px;
+            text-align: center; border: 2px solid #fff; min-width: 280px;
+        }
         .big-btn {
-            background: white; color: black; border: none;
-            padding: 15px 40px; font-size: 20px; font-weight: bold;
-            cursor: pointer; border-radius: 10px; margin-top: 20px;
+            background: #fff; color: #000; border: none; padding: 15px 40px;
+            font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 10px;
+            margin-top: 20px; width: 100%;
         }
-        .big-btn:hover { background: #ccc; }
+        .big-btn:hover { background: #ddd; }
+        input { width: 80px; padding: 10px; font-size: 18px; text-align: center; margin: 10px; }
     </style>
 </head>
 <body>
 
     <div id="hud">
-        <div id="scoreDisplay" class="info">得分: 0</div>
-        <div id="timerDisplay" class="info">時間: --</div>
+        <div id="scoreTxt" class="info">得分: 0</div>
+        <div id="timerTxt" class="info">時間: --</div>
     </div>
 
-    <div id="startUI" class="overlay">
-        <h1 style="margin-top:0">水果挑戰</h1>
-        <p>設定秒數：</p>
-        <input type="number" id="timeInput" value="60">
-        <p style="color:#ff5555; font-size:14px">小心炸彈 💣 會扣 20 分！</p>
-        <button id="startBtn" class="big-btn">開始遊戲</button>
+    <div id="startScreen" class="ui-layer">
+        <div class="panel">
+            <h1>水果挑戰</h1>
+            <p>設定秒數：</p>
+            <input type="number" id="secInput" value="60">
+            <p style="color:#ff6b6b">炸彈 💣 會扣 20 分！</p>
+            <button id="realStartBtn" class="big-btn">點我開始遊戲</button>
+        </div>
     </div>
 
-    <div id="overUI" class="overlay" style="display:none">
-        <h1>時間結束</h1>
-        <p id="finalScoreText" style="font-size:24px"></p>
-        <button id="restartBtn" class="big-btn">重新挑戰</button>
+    <div id="endScreen" class="ui-layer" style="display:none">
+        <div class="panel">
+            <h1>時間結束</h1>
+            <h2 id="finalScoreTxt"></h2>
+            <button id="retryBtn" class="big-btn">重新挑戰</button>
+        </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // 1. 基本設定
-        console.log("遊戲腳本已載入...");
+    // 確保所有網頁元素加載完畢才執行
+    window.onload = function() {
+        console.log("網頁載入完成，準備初始化...");
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const startUI = document.getElementById('startUI');
-        const overUI = document.getElementById('overUI');
-        const startBtn = document.getElementById('startBtn');
-        const restartBtn = document.getElementById('restartBtn');
-        const timeInput = document.getElementById('timeInput');
-        const scoreDisplay = document.getElementById('scoreDisplay');
-        const timerDisplay = document.getElementById('timerDisplay');
+        const startBtn = document.getElementById('realStartBtn');
+        const retryBtn = document.getElementById('retryBtn');
 
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -83,111 +82,168 @@
         let gameActive = false;
         let items = [];
         let particles = [];
-        let mouseTrail = [];
-        let timerTicker;
+        let trail = [];
+        let clock;
 
         const FRUITS = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
 
-        // 2. 核心函數：開始遊戲
-        function runGame() {
-            console.log("嘗試開始遊戲...");
+        // 開始按鈕點擊事件
+        startBtn.onclick = function() {
+            console.log("開始按鈕被按下");
+            begin();
+        };
+
+        retryBtn.onclick = function() {
+            location.reload();
+        };
+
+        function begin() {
+            const inputVal = document.getElementById('secInput').value;
+            timeLeft = parseInt(inputVal) || 60;
             score = 0;
-            timeLeft = parseInt(timeInput.value) || 60;
-            gameActive = true;
             items = [];
             particles = [];
-            
-            scoreDisplay.innerText = "得分: 0";
-            timerDisplay.innerText = "時間: " + timeLeft;
-            
-            startUI.style.display = 'none';
-            overUI.style.display = 'none';
+            gameActive = true;
 
-            // 倒數計時
-            if (timerTicker) clearInterval(timerTicker);
-            timerTicker = setInterval(() => {
+            document.getElementById('scoreTxt').innerText = "得分: 0";
+            document.getElementById('timerTxt').innerText = "時間: " + timeLeft;
+            document.getElementById('startScreen').style.display = 'none';
+
+            if (clock) clearInterval(clock);
+            clock = setInterval(() => {
                 if (gameActive) {
                     timeLeft--;
-                    timerDisplay.innerText = "時間: " + timeLeft;
-                    if (timeLeft <= 0) gameOver();
+                    document.getElementById('timerTxt').innerText = "時間: " + timeLeft;
+                    if (timeLeft <= 0) finish();
                 }
             }, 1000);
 
             animate();
         }
 
-        function gameOver() {
+        function finish() {
             gameActive = false;
-            clearInterval(timerTicker);
-            document.getElementById('finalScoreText').innerText = "最終得分: " + score;
-            overUI.style.display = 'block';
+            clearInterval(clock);
+            document.getElementById('finalScoreTxt').innerText = "得分: " + score;
+            document.getElementById('endScreen').style.display = 'flex';
         }
 
-        // 3. 綁定按鈕點擊事件 (這是最保險的寫法)
-        startBtn.addEventListener('click', () => {
-            runGame();
-        });
-
-        restartBtn.addEventListener('click', () => {
-            location.reload(); 
-        });
-
-        // 4. 遊戲物理類別
-        class Item {
-            constructor(isBomb = false) {
+        class Obj {
+            constructor(bomb) {
                 this.x = Math.random() * (canvas.width - 100) + 50;
                 this.y = canvas.height + 50;
-                this.speedY = -(Math.random() * 3 + 8); // 速度慢
-                this.speedX = (Math.random() - 0.5) * 4;
-                this.isBomb = isBomb;
-                this.char = isBomb ? '💣' : FRUITS[Math.floor(Math.random() * FRUITS.length)];
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = -(Math.random() * 3 + 8); // 速度調慢
+                this.bomb = bomb;
+                this.char = bomb ? '💣' : FRUITS[Math.floor(Math.random() * FRUITS.length)];
                 this.angle = 0;
             }
             update() {
-                this.speedY += 0.2; // 重力
-                this.x += this.speedX;
-                this.y += this.speedY;
+                this.vy += 0.2; // 重力
+                this.x += this.vx;
+                this.y += this.vy;
                 this.angle += 0.05;
             }
             draw() {
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle);
-                ctx.font = "60px Arial";
+                ctx.font = "50px Arial";
                 ctx.textAlign = "center";
                 ctx.fillText(this.char, 0, 0);
                 ctx.restore();
             }
         }
 
-        class Sliced {
+        class Part {
             constructor(x, y, char, side) {
                 this.x = x; this.y = y; this.char = char; this.side = side;
-                this.speedX = side === 'left' ? -3 : 3;
-                this.speedY = -3;
-                this.opacity = 1;
+                this.vx = side === 'left' ? -3 : 3;
+                this.vy = -3; this.opacity = 1;
             }
             update() {
-                this.speedY += 0.2; this.x += this.speedX; this.y += this.speedY;
+                this.vy += 0.2; this.x += this.vx; this.y += this.vy;
                 this.opacity -= 0.02;
             }
             draw() {
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, this.opacity);
                 ctx.translate(this.x, this.y);
-                ctx.font = "60px Arial";
+                ctx.font = "50px Arial";
                 ctx.textAlign = "center";
                 ctx.beginPath();
-                if (this.side === 'left') ctx.rect(-60, -60, 60, 120);
-                else ctx.rect(0, -60, 60, 120);
+                if (this.side === 'left') ctx.rect(-50, -50, 50, 100);
+                else ctx.rect(0, -50, 50, 100);
                 ctx.clip();
                 ctx.fillText(this.char, 0, 0);
                 ctx.restore();
             }
         }
 
-        // 5. 滑鼠與動畫
-        canvas.addEventListener('mousemove', (e) => {
+        // 滑鼠與觸控
+        function handleMove(ex, ey) {
             if (!gameActive) return;
-            const mx = e.clientX;
-            const my = e.clientY;
+            trail.push({x: ex, y: ey});
+            if (trail.length > 8) trail.shift();
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                const it = items[i];
+                if (Math.hypot(it.x - ex, it.y - ey) < 45) {
+                    if (it.bomb) {
+                        score = Math.max(0, score - 20);
+                        particles.push(new Part(it.x, it.y, '💥', 'left'));
+                        particles.push(new Part(it.x, it.y, '💥', 'right'));
+                    } else {
+                        score += 10;
+                        particles.push(new Part(it.x, it.y, it.char, 'left'));
+                        particles.push(new Part(it.x, it.y, it.char, 'right'));
+                    }
+                    items.splice(i, 1);
+                    document.getElementById('scoreTxt').innerText = "得分: " + score;
+                    trail = [];
+                }
+            }
+        }
+
+        canvas.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const t = e.touches[0];
+            handleMove(t.clientX, t.clientY);
+        }, {passive: false});
+
+        function animate() {
+            if (!gameActive) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (Math.random() < 0.03) {
+                items.push(new Obj(Math.random() < 0.15));
+            }
+
+            items.forEach((it, i) => {
+                it.update();
+                it.draw();
+                if (it.y > canvas.height + 100) items.splice(i, 1);
+            });
+
+            particles.forEach((p, i) => {
+                p.update();
+                p.draw();
+                if (p.opacity <= 0) particles.splice(i, 1);
+            });
+
+            if (trail.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = "white";
+                ctx.lineWidth = 3;
+                ctx.moveTo(trail[0].x, trail[0].y);
+                trail.forEach(pt => ctx.lineTo(pt.x, pt.y));
+                ctx.stroke();
+                trail.shift();
+            }
+            requestAnimationFrame(animate);
+        }
+    };
+    </script>
+</body>
+</html>
