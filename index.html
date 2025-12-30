@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>切水果遊戲</title>
+    <title>水果挑戰 - 隱形切割版</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
         #hud {
@@ -68,128 +68,5 @@
         canvas.height = window.innerHeight;
 
         let score = 0, timeLeft = 0, gameActive = false;
-        let items = [], trail = [], clock;
-        const FRUITS = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
-
-        // 點擊開始
-        document.getElementById('goBtn').addEventListener('click', function() {
-            timeLeft = parseInt(document.getElementById('secIn').value) || 30;
-            score = 0;
-            items = [];
-            trail = [];
-            gameActive = true;
-            document.getElementById('startUI').style.display = 'none';
-            
-            if(clock) clearInterval(clock);
-            clock = setInterval(() => {
-                if(gameActive) {
-                    timeLeft--;
-                    timerTxt.innerText = "時間: " + timeLeft;
-                    if(timeLeft <= 0) {
-                        gameActive = false;
-                        clearInterval(clock);
-                        document.getElementById('resScore').innerText = score;
-                        document.getElementById('endUI').style.display = 'flex';
-                    }
-                }
-            }, 1000);
-            animate();
-        });
-
-        class Obj {
-            constructor(isBomb) {
-                this.x = Math.random() * (canvas.width - 60) + 30;
-                this.y = canvas.height + 50;
-                this.vx = (Math.random() - 0.5) * 4;
-                this.vy = -(Math.random() * 4 + 8); // 速度慢一點
-                this.bomb = isBomb;
-                this.char = isBomb ? '💣' : FRUITS[Math.floor(Math.random() * FRUITS.length)];
-                this.angle = 0;
-            }
-            update() {
-                this.vy += 0.2; // 重力
-                this.x += this.vx;
-                this.y += this.vy;
-                this.angle += 0.05;
-            }
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.angle);
-                ctx.font = "55px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(this.char, 0, 0);
-                ctx.restore();
-            }
-        }
-
-        function handleMove(ex, ey) {
-            if(!gameActive) return;
-            // 增加新點
-            trail.push({x: ex, y: ey});
-            if(trail.length > 12) trail.shift(); // 刀光長度增加到 12
-
-            for(let i = items.length - 1; i >= 0; i--) {
-                let it = items[i];
-                // 碰撞偵測
-                if(Math.hypot(it.x - ex, it.y - ey) < 50) {
-                    if(it.bomb) score = Math.max(0, score - 20);
-                    else score += 10;
-                    
-                    items.splice(i, 1);
-                    scoreTxt.innerText = "得分: " + score;
-                    trail = []; // 切到後立馬消失
-                }
-            }
-        }
-
-        canvas.addEventListener('mousemove', (e) => handleMove(e.clientX, e.clientY));
-        canvas.addEventListener('touchmove', (e) => {
-            const t = e.touches[0];
-            handleMove(t.clientX, t.clientY);
-        });
-
-        function animate() {
-            if(!gameActive) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 產生水果/炸彈
-            if(Math.random() < 0.04) {
-                items.push(new Obj(Math.random() < 0.2)); // 20% 出現炸彈
-            }
-
-            // 更新並畫出物件
-            items.forEach((it, i) => {
-                it.update();
-                it.draw();
-                if(it.y > canvas.height + 100) items.splice(i, 1);
-            });
-
-            // 畫出刀光
-            if(trail.length > 1) {
-                ctx.beginPath();
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-                ctx.lineWidth = 5; // 刀光加粗
-                ctx.lineCap = "round";
-                ctx.lineJoin = "round";
-                ctx.moveTo(trail[0].x, trail[0].y);
-                for(let i = 1; i < trail.length; i++) {
-                    ctx.lineTo(trail[i].x, trail[i].y);
-                }
-                ctx.stroke();
-                
-                // 自動淡出邏輯：每幀移除最舊的一個點
-                trail.shift();
-            }
-
-            requestAnimationFrame(animate);
-        }
-
-        window.addEventListener('resize', () => {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        });
-    </script>
-</body>
-</html>
+        let items = [], clock;
+        const FRUITS = ['🍎
