@@ -8,44 +8,48 @@
         body { 
             margin: 0; padding: 0; overflow: hidden; 
             background-color: #1a1a1a; user-select: none;
-            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
         }
         #game-container { position: relative; width: 100vw; height: 100vh; }
         
-        /* HUD 樣式 (分數與計時) */
+        /* UI 顯示層 (分數與時間) */
         #hud {
             position: absolute; top: 20px; width: 100%;
             display: flex; justify-content: space-between;
-            padding: 0 30px; box-sizing: border-box;
-            color: white; font-size: 28px; z-index: 5;
-            pointer-events: none; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            padding: 0 40px; box-sizing: border-box;
+            z-index: 50; /* 確保在最前方 */
+            pointer-events: none;
         }
-        #timer { color: #ffeb3b; }
+        .info-text {
+            color: white; font-size: 32px; font-weight: bold;
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+        }
+        #timer-display { color: #ffeb3b; }
 
         canvas { display: block; background: radial-gradient(circle, #2c3e50 0%, #000000 100%); }
 
-        /* 選單與結束畫面的通用樣式 */
+        /* 選單與結束畫面 */
         .overlay {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             color: white; padding: 40px; border-radius: 20px;
-            text-align: center; z-index: 100; border: 2px solid #4caf50;
-            min-width: 300px;
+            text-align: center; z-index: 100; border: 3px solid #4caf50;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        h1 { margin-top: 0; color: #4caf50; }
+        h1 { margin-top: 0; color: #4caf50; font-size: 40px; }
+        .input-group { margin: 20px 0; }
         input {
-            width: 80px; padding: 10px; font-size: 20px;
-            border-radius: 5px; border: none; text-align: center;
-            margin: 20px 0;
+            width: 100px; padding: 10px; font-size: 24px;
+            border-radius: 8px; border: none; text-align: center;
         }
         button {
             background: #4caf50; color: white; border: none;
-            padding: 10px 30px; font-size: 20px; cursor: pointer;
-            border-radius: 10px; transition: 0.3s; width: 100%;
+            padding: 12px 40px; font-size: 22px; cursor: pointer;
+            border-radius: 10px; transition: 0.2s;
         }
-        button:hover { background: #45a049; }
+        button:hover { background: #45a049; transform: scale(1.05); }
         
         #game-over-ui { display: none; border-color: #ff5252; }
         #game-over-ui h1 { color: #ff5252; }
@@ -55,21 +59,23 @@
 
     <div id="game-container">
         <div id="hud">
-            <div id="score-display">得分: 0</div>
-            <div id="timer-display">剩餘時間: --</div>
+            <div id="score-display" class="info-text">得分: 0</div>
+            <div id="timer-display" class="info-text">時間: --</div>
         </div>
         
         <div id="start-menu" class="overlay">
-            <h1>切水果挑戰</h1>
-            <label for="time-input">設定挑戰秒數：</label><br>
-            <input type="number" id="time-input" value="60" min="5" max="999"><br>
-            <button onclick="initGame()">開始遊戲</button>
+            <h1>水果忍者挑戰</h1>
+            <div class="input-group">
+                <label style="font-size: 20px;">挑戰秒數：</label>
+                <input type="number" id="time-input" value="60" min="5">
+            </div>
+            <button onclick="pressStart()">開始挑戰</button>
         </div>
 
         <div id="game-over-ui" class="overlay">
-            <h1>時間到！</h1>
-            <p id="final-score-text" style="font-size: 24px;">最終得分: 0</p>
-            <button onclick="showMenu()">回主選單</button>
+            <h1>時間結束</h1>
+            <p id="final-score-text" style="font-size: 30px; margin: 20px 0;">最終得分: 0</p>
+            <button onclick="backToMenu()">返回選單</button>
         </div>
 
         <canvas id="gameCanvas"></canvas>
@@ -92,7 +98,6 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // 遊戲狀態變數
         let score = 0;
         let timeLeft = 0;
         let gameActive = false;
@@ -100,49 +105,44 @@
         let slicedPieces = [];
         let mousePath = [];
         let timerInterval;
-        const gravity = 0.25;
-        const maxPathLength = 8;
+        const gravity = 0.28;
+        const maxPathLength = 10;
         const fruitList = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
 
-        // 顯示主選單
-        function showMenu() {
+        function backToMenu() {
             gameOverUI.style.display = "none";
             startMenu.style.display = "block";
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // 初始化遊戲 (讀取自訂時間)
-        function initGame() {
-            let customTime = parseInt(timeInput.value);
-            if (isNaN(customTime) || customTime < 5) {
-                alert("請輸入至少 5 秒以上的時間！");
-                return;
-            }
+        function pressStart() {
+            let val = parseInt(timeInput.value);
+            if (isNaN(val) || val < 5) val = 60;
             
             score = 0;
-            timeLeft = customTime;
+            timeLeft = val;
             gameActive = true;
             fruits = [];
             slicedPieces = [];
             mousePath = [];
             
             scoreDisplay.innerText = `得分: ${score}`;
-            timerDisplay.innerText = `剩餘時間: ${timeLeft}`;
+            timerDisplay.innerText = `時間: ${timeLeft}`;
             
             startMenu.style.display = "none";
             gameOverUI.style.display = "none";
 
-            // 啟動計時器
-            clearInterval(timerInterval);
+            // 啟動倒數計時器
+            if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
                 if (gameActive) {
                     timeLeft--;
-                    timerDisplay.innerText = `剩餘時間: ${timeLeft}`;
+                    timerDisplay.innerText = `時間: ${timeLeft}`;
                     if (timeLeft <= 0) endGame();
                 }
             }, 1000);
 
-            animate();
+            requestAnimationFrame(animate);
         }
 
         function endGame() {
@@ -152,17 +152,16 @@
             gameOverUI.style.display = "block";
         }
 
-        // --- 核心類別 ---
         class Fruit {
             constructor() {
                 this.radius = 45;
-                this.x = Math.random() * (canvas.width - 100) + 50;
+                this.x = Math.random() * (canvas.width - 150) + 75;
                 this.y = canvas.height + 50;
-                this.speedY = -(Math.random() * 5 + 13); 
-                this.speedX = (Math.random() - 0.5) * 6;
+                this.speedY = -(Math.random() * 6 + 13); 
+                this.speedX = (Math.random() - 0.5) * 8;
                 this.char = fruitList[Math.floor(Math.random() * fruitList.length)];
                 this.angle = 0;
-                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.12;
             }
             update() {
                 this.speedY += gravity;
@@ -174,7 +173,7 @@
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle);
-                ctx.font = "60px Arial";
+                ctx.font = "65px Arial";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(this.char, 0, 0);
@@ -195,19 +194,19 @@
             }
             update() {
                 this.speedY += gravity; this.x += this.speedX; this.y += this.speedY;
-                this.opacity -= 0.02;
+                this.opacity -= 0.025;
             }
             draw() {
                 ctx.save();
                 ctx.globalAlpha = Math.max(0, this.opacity);
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.angle);
-                ctx.font = "60px Arial";
+                ctx.font = "65px Arial";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.beginPath();
-                if (this.side === 'left') ctx.rect(-60, -60, 60, 120);
-                else ctx.rect(0, -60, 60, 120);
+                if (this.side === 'left') ctx.rect(-70, -70, 70, 140);
+                else ctx.rect(0, -70, 70, 140);
                 ctx.clip();
                 ctx.fillText(this.char, 0, 0);
                 ctx.restore();
@@ -244,12 +243,12 @@
             for (let i = fruits.length - 1; i >= 0; i--) {
                 let f = fruits[i];
                 const dist = Math.hypot(f.x - mouseX, f.y - mouseY);
-                if (dist < 50) {
+                if (dist < 55) {
                     f.slice();
                     score += 10;
                     scoreDisplay.innerText = `得分: ${score}`;
                     fruits.splice(i, 1);
-                    mousePath = []; 
+                    mousePath = []; // 關鍵需求：切到後刀光立馬消失
                 }
             }
         });
@@ -260,12 +259,14 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             spawnFruit();
 
+            // 水果更新
             for (let i = fruits.length - 1; i >= 0; i--) {
                 fruits[i].update();
                 fruits[i].draw();
                 if (fruits[i].y > canvas.height + 100) fruits.splice(i, 1);
             }
 
+            // 碎片更新
             for (let i = slicedPieces.length - 1; i >= 0; i--) {
                 slicedPieces[i].update();
                 slicedPieces[i].draw();
