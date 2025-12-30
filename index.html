@@ -8,63 +8,62 @@
         body { 
             margin: 0; padding: 0; overflow: hidden; 
             background-color: #000; user-select: none;
-            font-family: 'Arial', sans-serif;
+            font-family: 'Arial', 'Microsoft JhengHei', sans-serif;
         }
 
-        /* 強化的數據顯示欄 (固定在螢幕最上方) */
+        /* 數據顯示欄 */
         #hud-top {
-            position: fixed; /* 修正為 fixed 確保不隨頁面滾動且永遠置頂 */
-            top: 10px;
-            left: 0;
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            padding: 0 20px;
-            box-sizing: border-box;
-            z-index: 9999; /* 極高層級 */
-            pointer-events: none;
+            position: fixed; 
+            top: 15px; left: 0; width: 100%;
+            display: flex; justify-content: space-between;
+            padding: 0 25px; box-sizing: border-box;
+            z-index: 9999; pointer-events: none;
         }
 
         .data-box {
-            background: rgba(0, 0, 0, 0.6); /* 半透明黑底 */
-            color: #fff;
+            background: rgba(255, 255, 255, 0.1); 
+            color: #ffffff; 
             padding: 10px 20px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            font-size: 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.5); 
+            font-size: 26px;
             font-weight: bold;
-            min-width: 150px;
+            min-width: 160px;
             text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
-        #timer-display {
-            color: #ffee58; /* 亮黃色字體 */
-            border: 1px solid #ffee58;
-        }
-
-        /* 畫布樣式 */
         canvas { display: block; z-index: 1; }
 
         /* 選單與結束畫面 */
         .overlay {
             position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(20, 20, 20, 0.95);
-            color: white; padding: 40px; border-radius: 20px;
-            text-align: center; z-index: 10000; border: 3px solid #4caf50;
+            background: rgba(30, 30, 30, 0.95);
+            color: #ffffff; padding: 45px; border-radius: 20px;
+            text-align: center; z-index: 10000; 
+            border: 2px solid #ffffff; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
         }
 
-        h1 { margin: 0 0 20px 0; color: #4caf50; }
+        h1 { margin: 0 0 20px 0; color: #ffffff; font-size: 36px; }
+        p { color: #ffffff; font-size: 20px; }
+
         input {
-            width: 100px; padding: 10px; font-size: 20px;
-            margin-bottom: 20px; text-align: center;
+            width: 110px; padding: 12px; font-size: 22px;
+            margin-bottom: 25px; text-align: center;
+            border-radius: 8px; border: 1px solid #ccc;
         }
+
         button {
-            background: #4caf50; color: white; border: none;
-            padding: 10px 40px; font-size: 20px; cursor: pointer;
-            border-radius: 5px;
+            background: #ffffff; color: #000000; border: none;
+            padding: 12px 45px; font-size: 22px; cursor: pointer;
+            border-radius: 8px; font-weight: bold;
+            transition: 0.3s;
         }
-        #game-over-ui { display: none; border-color: #f44336; }
+        button:hover { background: #dddddd; transform: scale(1.05); }
+
+        #game-over-ui { display: none; }
     </style>
 </head>
 <body>
@@ -75,16 +74,16 @@
     </div>
     
     <div id="start-menu" class="overlay">
-        <h1>準備好了嗎？</h1>
-        <p>請輸入挑戰秒數：</p>
+        <h1>水果挑戰</h1>
+        <p>設定遊戲秒數：<br><small>(小心炸彈會扣20分！)</small></p>
         <input type="number" id="time-input" value="60" min="5">
         <br>
         <button onclick="startGame()">開始遊戲</button>
     </div>
 
     <div id="game-over-ui" class="overlay">
-        <h1 style="color:#f44336">時間到！</h1>
-        <p id="final-score" style="font-size: 28px;">得分: 0</p>
+        <h1>時間到</h1>
+        <p id="final-score" style="font-size: 30px; margin: 25px 0;">得分: 0</p>
         <button onclick="location.reload()">重新挑戰</button>
     </div>
 
@@ -105,11 +104,11 @@
         let score = 0;
         let timeLeft = 0;
         let gameActive = false;
-        let fruits = [];
+        let items = []; // 包含水果和炸彈
         let slicedPieces = [];
         let mousePath = [];
         let gameTimer;
-        const gravity = 0.25;
+        const gravity = 0.22; // 稍微降低重力感，讓下墜也慢一點
         const fruitList = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
 
         function startGame() {
@@ -118,20 +117,16 @@
             score = 0;
             gameActive = true;
             
-            // 更新 UI
             scoreText.innerText = `得分: ${score}`;
             timerText.innerText = `時間: ${timeLeft}`;
             startMenu.style.display = 'none';
 
-            // 啟動倒數邏輯
             if (gameTimer) clearInterval(gameTimer);
             gameTimer = setInterval(() => {
                 if (gameActive) {
                     timeLeft--;
                     timerText.innerText = `時間: ${timeLeft}`;
-                    if (timeLeft <= 0) {
-                        endGame();
-                    }
+                    if (timeLeft <= 0) endGame();
                 }
             }, 1000);
 
@@ -141,122 +136,15 @@
         function endGame() {
             gameActive = false;
             clearInterval(gameTimer);
-            finalScore.innerText = `得分: ${score}`;
+            finalScore.innerText = `最終得分: ${score}`;
             gameOverUI.style.display = 'block';
         }
 
-        // --- 以下為遊戲核心繪圖邏輯 ---
-
-        class Fruit {
-            constructor() {
-                this.x = Math.random() * (canvas.width - 100) + 50;
+        class GameObject {
+            constructor(isBomb = false) {
+                this.x = Math.random() * (canvas.width - 120) + 60;
                 this.y = canvas.height + 50;
-                this.speedY = -(Math.random() * 5 + 13);
-                this.speedX = (Math.random() - 0.5) * 6;
-                this.char = fruitList[Math.floor(Math.random() * fruitList.length)];
-                this.angle = 0;
-                this.radius = 45;
-            }
-            update() {
-                this.speedY += gravity;
-                this.x += this.speedX;
-                this.y += this.speedY;
-                this.angle += 0.1;
-            }
-            draw() {
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.angle);
-                ctx.font = "60px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(this.char, 0, 0);
-                ctx.restore();
-            }
-        }
-
-        class SlicedPiece {
-            constructor(x, y, char, side) {
-                this.x = x; this.y = y; this.char = char; this.side = side;
-                this.speedX = side === 'left' ? -3 : 3;
-                this.speedY = -5;
-                this.opacity = 1;
-            }
-            update() {
-                this.speedY += gravity;
-                this.x += this.speedX;
-                this.y += this.speedY;
-                this.opacity -= 0.02;
-            }
-            draw() {
-                ctx.save();
-                ctx.globalAlpha = Math.max(0, this.opacity);
-                ctx.translate(this.x, this.y);
-                ctx.font = "60px Arial";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.beginPath();
-                if (this.side === 'left') ctx.rect(-60, -60, 60, 120);
-                else ctx.rect(0, -60, 60, 120);
-                ctx.clip();
-                ctx.fillText(this.char, 0, 0);
-                ctx.restore();
-            }
-        }
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (!gameActive) return;
-            const mx = e.clientX;
-            const my = e.clientY;
-            
-            mousePath.push({x: mx, y: my});
-            if (mousePath.length > 8) mousePath.shift();
-
-            for (let i = fruits.length - 1; i >= 0; i--) {
-                const f = fruits[i];
-                if (Math.hypot(f.x - mx, f.y - my) < 50) {
-                    slicedPieces.push(new SlicedPiece(f.x, f.y, f.char, 'left'));
-                    slicedPieces.push(new SlicedPiece(f.x, f.y, f.char, 'right'));
-                    fruits.splice(i, 1);
-                    score += 10;
-                    scoreText.innerText = `得分: ${score}`;
-                    mousePath = []; // 切到後刀光消失
-                }
-            }
-        });
-
-        function animate() {
-            if (!gameActive) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (Math.random() < 0.05) fruits.push(new Fruit());
-
-            fruits.forEach((f, i) => {
-                f.update();
-                f.draw();
-                if (f.y > canvas.height + 100) fruits.splice(i, 1);
-            });
-
-            slicedPieces.forEach((p, i) => {
-                p.update();
-                p.draw();
-                if (p.opacity <= 0) slicedPieces.splice(i, 1);
-            });
-
-            // 畫刀光
-            if (mousePath.length > 1) {
-                ctx.beginPath();
-                ctx.strokeStyle = "white";
-                ctx.lineWidth = 4;
-                ctx.lineCap = "round";
-                ctx.moveTo(mousePath[0].x, mousePath[0].y);
-                mousePath.forEach(p => ctx.lineTo(p.x, p.y));
-                ctx.stroke();
-                mousePath.shift(); // 刀光自動消失
-            }
-
-            requestAnimationFrame(animate);
-        }
-    </script>
-</body>
-</html>
+                // --- 修改這裡：速度從之前的 13~18 調慢為 9~13 ---
+                this.speedY = -(Math.random() * 4 + 9); 
+                this.speedX = (Math.random() - 0.5) * 5;
+                this.isBomb =
