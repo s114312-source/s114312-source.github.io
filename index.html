@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>水果挑戰 - 隱形切割版</title>
+    <title>水果挑戰 - 強制修復版</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: #000; font-family: sans-serif; touch-action: none; }
         #hud {
@@ -11,24 +11,25 @@
             justify-content: space-between; padding: 0 20px; box-sizing: border-box;
             z-index: 50; pointer-events: none;
         }
-        .info { color: white; font-size: 20px; font-weight: bold; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 10px; text-shadow: 1px 1px 2px #000; }
+        .info { color: white; font-size: 18px; background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 5px; }
         canvas { display: block; position: absolute; top: 0; left: 0; z-index: 1; }
 
+        /* 選單層級 */
         .overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); display: flex; align-items: center;
+            background: rgba(0,0,0,0.85); display: flex; align-items: center;
             justify-content: center; z-index: 9999;
         }
         .panel {
-            background: #222; color: white; padding: 30px; border-radius: 20px;
-            text-align: center; border: 2px solid #fff; width: 85%; max-width: 320px;
+            background: #2c3e50; color: white; padding: 30px; border-radius: 15px;
+            text-align: center; border: 2px solid #fff; width: 80%; max-width: 300px;
         }
         .btn {
             background: #fff; color: #000; border: none; padding: 15px;
             font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 10px;
             width: 100%; margin-top: 20px;
         }
-        input { width: 70px; padding: 10px; font-size: 18px; text-align: center; margin: 10px; border-radius: 5px; border: none; }
+        input { width: 60px; padding: 8px; font-size: 18px; text-align: center; margin: 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -40,25 +41,28 @@
 
     <div id="startUI" class="overlay">
         <div class="panel">
-            <h1 style="margin:0">水果挑戰</h1>
-            <p>挑戰秒數：</p>
-            <input type="number" id="secIn" value="30">
-            <p style="color:#ff7675;">💣 炸彈扣 20 分！</p>
-            <button id="goBtn" class="btn">開始挑戰</button>
+            <h2 style="margin:0">水果挑戰</h2>
+            <p>設定遊戲秒數：</p>
+            <input type="number" id="secIn" value="60">
+            <p style="color:#ff7675; font-size:14px;">💣 切到炸彈扣 20 分！<br>(水果速度已調慢)</p>
+            <button id="goBtn" class="btn">開始遊戲</button>
         </div>
     </div>
 
     <div id="endUI" class="overlay" style="display:none">
         <div class="panel">
-            <h2>挑戰結束</h2>
-            <h1 id="resScore" style="font-size: 48px; color: #fff;">0</h1>
-            <button onclick="location.reload()" class="btn">再試一次</button>
+            <h2>時間結束</h2>
+            <h1 id="resScore">0</h1>
+            <button onclick="location.reload()" class="btn">重新挑戰</button>
         </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
+        // --- 錯誤偵測預警 ---
+        window.onerror = function(msg) { alert("錯誤: " + msg); };
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const scoreTxt = document.getElementById('scoreTxt');
@@ -68,5 +72,115 @@
         canvas.height = window.innerHeight;
 
         let score = 0, timeLeft = 0, gameActive = false;
-        let items = [], clock;
-        const FRUITS = ['🍎
+        let items = [], particles = [], trail = [], clock;
+        const FRUITS = ['🍎', '🍊', '🍉', '🍍', '🍓', '🥝', '🍇', '🍋'];
+
+        // --- 點擊開始 ---
+        document.getElementById('goBtn').addEventListener('click', function() {
+            try {
+                const val = document.getElementById('secIn').value;
+                timeLeft = parseInt(val) || 60;
+                score = 0;
+                items = [];
+                particles = [];
+                gameActive = true;
+
+                document.getElementById('startUI').style.display = 'none';
+                
+                if(clock) clearInterval(clock);
+                clock = setInterval(() => {
+                    if(gameActive) {
+                        timeLeft--;
+                        timerTxt.innerText = "時間: " + timeLeft;
+                        if(timeLeft <= 0) {
+                            gameActive = false;
+                            clearInterval(clock);
+                            document.getElementById('resScore').innerText = "得分: " + score;
+                            document.getElementById('endUI').style.display = 'flex';
+                        }
+                    }
+                }, 1000);
+
+                animate();
+                console.log("遊戲已成功啟動");
+            } catch(e) {
+                alert("啟動失敗: " + e);
+            }
+        });
+
+        class Obj {
+            constructor(isBomb) {
+                this.x = Math.random() * (canvas.width - 60) + 30;
+                this.y = canvas.height + 50;
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = -(Math.random() * 3 + 7); // 速度慢
+                this.bomb = isBomb;
+                this.char = isBomb ? '💣' : FRUITS[Math.floor(Math.random() * FRUITS.length)];
+                this.angle = 0;
+            }
+            update() {
+                this.vy += 0.18; // 輕微重力
+                this.x += this.vx;
+                this.y += this.vy;
+                this.angle += 0.04;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.font = "50px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(this.char, 0, 0);
+                ctx.restore();
+            }
+        }
+
+        function handleInput(ex, ey) {
+            if(!gameActive) return;
+            trail.push({x: ex, y: ey});
+            if(trail.length > 5) trail.shift();
+
+            for(let i = items.length - 1; i >= 0; i--) {
+                let it = items[i];
+                if(Math.hypot(it.x - ex, it.y - ey) < 40) {
+                    if(it.bomb) score = Math.max(0, score - 20);
+                    else score += 10;
+                    
+                    items.splice(i, 1);
+                    scoreTxt.innerText = "得分: " + score;
+                    trail = []; // 切到立刻消失
+                }
+            }
+        }
+
+        canvas.addEventListener('mousemove', (e) => handleInput(e.clientX, e.clientY));
+        canvas.addEventListener('touchmove', (e) => {
+            handleInput(e.touches[0].clientX, e.touches[0].clientY);
+        });
+
+        function animate() {
+            if(!gameActive) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if(Math.random() < 0.03) items.push(new Obj(Math.random() < 0.15));
+
+            items.forEach((it, i) => {
+                it.update();
+                it.draw();
+                if(it.y > canvas.height + 100) items.splice(i, 1);
+            });
+
+            if(trail.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 3;
+                ctx.moveTo(trail[0].x, trail[0].y);
+                trail.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.stroke();
+            }
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
